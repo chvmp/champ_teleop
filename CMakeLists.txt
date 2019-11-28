@@ -6,7 +6,7 @@ find_package(catkin REQUIRED)
 catkin_package()
 
 catkin_install_python(PROGRAMS
-   teleop.py
+   champ_teleop.py
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
