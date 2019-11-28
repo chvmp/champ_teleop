@@ -1,11 +1,11 @@
 <launch>
-    <arg name="joy"  default="true"/>
+    <arg name="joy"  default="false"/>
     <arg name="dev"  default="/dev/input/js0"/>
 
-    <node if="$(arg joy)" name="joy" pkg="joy" type="joy_node">
+    <node if="$(arg joy)" name="joy" pkg="joy" type="joy_node" required="true">
         <param name="autorepeat_rate" value="30" />
         <param name="dev" value="$(arg dev)" />
     </node>
 
-    <node name="champ_teleop" pkg="champ_teleop" type="champ_teleop.py" />
+    <node name="champ_teleop" pkg="champ_teleop" type="champ_teleop.py" output="screen" required="true"/>
 </launch>
