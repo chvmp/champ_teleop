@@ -3,9 +3,11 @@
     <arg name="dev"  default="/dev/input/js0"/>
 
     <node if="$(arg joy)" name="joy" pkg="joy" type="joy_node" required="true">
-        <param name="autorepeat_rate" value="30" />
+        <param name="autorepeat_rate" value="5" />
         <param name="dev" value="$(arg dev)" />
     </node>
 
-    <node name="champ_teleop" pkg="champ_teleop" type="champ_teleop.py" output="screen" required="true"/>
+    <node name="champ_teleop" pkg="champ_teleop" type="champ_teleop.py" output="screen" required="true">
+        <param name="joy" value="$(arg joy)" />
+    </node>
 </launch>
