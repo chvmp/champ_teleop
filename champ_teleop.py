@@ -86,6 +86,7 @@ CTRL-C to quit
 
     def joy_callback(self, data):
         twist = Twist()
+        # height_scaler = self.map(data.axes[5], 0, 1.0, 0, 1.0)
         twist.linear.x = data.axes[7] * self.speed
         twist.linear.y = data.buttons[4] * data.axes[6] * self.speed
         twist.linear.z = 0
@@ -97,10 +98,17 @@ CTRL-C to quit
         body_pose = Pose()
         body_pose.x = 0
         body_pose.y = 0
-        body_pose.z = 0
         body_pose.roll = (not data.buttons[5]) *-data.axes[3] * 0.349066
         body_pose.pitch = data.axes[4] * 0.261799
         body_pose.yaw = data.buttons[5] * data.axes[3] * 0.436332
+        body_pose.z = self.map(data.axes[5], 0, -1.0, 0.145, 0.115)
+        body_pose.z = np.clip(body_pose.z, 0.115, 0.145)
+        # if data.buttons[10]:
+        #     body_pose.z = self.map(data.axes[4], 0, -1.0, 0.145, 0.115)
+        #     body_pose.pitch = 0
+        # else:
+        #     body_pose.z = 0.145
+    
         self.pose_publisher.publish(body_pose)
 
     def poll_keys(self):
@@ -110,6 +118,9 @@ CTRL-C to quit
         y = 0
         z = 0
         th = 0
+        roll = 0
+        pitch = 0
+        yaw = 0
         status = 0
         cmd_attempts = 0
 
@@ -165,7 +176,7 @@ CTRL-C to quit
                     
                     print(self.vels(self.speed, self.turn))
                     if (status == 14):
-                        print(msg)
+                        print(self.msg)
                     status = (status + 1) % 15
 
                 else:
@@ -200,6 +211,9 @@ CTRL-C to quit
 
     def vels(self, speed, turn):
         return "currently:\tspeed %s\tturn %s " % (speed,turn)
+
+    def map(self, x, in_min, in_max, out_min, out_max):
+        return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 
 if __name__ == "__main__":
     rospy.init_node('champ_teleop')
