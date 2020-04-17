@@ -86,7 +86,6 @@ CTRL-C to quit
 
     def joy_callback(self, data):
         twist = Twist()
-        # height_scaler = self.map(data.axes[5], 0, 1.0, 0, 1.0)
         twist.linear.x = data.axes[7] * self.speed
         twist.linear.y = data.buttons[4] * data.axes[6] * self.speed
         twist.linear.z = 0
@@ -101,13 +100,10 @@ CTRL-C to quit
         body_pose.roll = (not data.buttons[5]) *-data.axes[3] * 0.349066
         body_pose.pitch = data.axes[4] * 0.261799
         body_pose.yaw = data.buttons[5] * data.axes[3] * 0.436332
-        body_pose.z = self.map(data.axes[5], 0, -1.0, 0.145, 0.115)
-        body_pose.z = np.clip(body_pose.z, 0.115, 0.145)
-        # if data.buttons[10]:
-        #     body_pose.z = self.map(data.axes[4], 0, -1.0, 0.145, 0.115)
-        #     body_pose.pitch = 0
-        # else:
-        #     body_pose.z = 0.145
+        if data.axes[5] < 0:
+            body_pose.z = self.map(data.axes[5], 0, -1.0, 1, 0)
+        else:
+            body_pose.z = 1.0
     
         self.pose_publisher.publish(body_pose)
 
