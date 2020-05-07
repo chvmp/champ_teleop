@@ -16,7 +16,7 @@ import numpy as np
 class Teleop:
     def __init__(self):
         self.velocity_publisher = rospy.Publisher('cmd_vel', Twist, queue_size = 1)
-        self.pose_publisher = rospy.Publisher('champ/cmd_pose', Pose, queue_size = 1)
+        self.pose_publisher = rospy.Publisher('cmd_pose', Pose, queue_size = 1)
         self.joy_subscriber = rospy.Subscriber('joy', Joy, self.joy_callback)
 
         self.speed = rospy.get_param("~speed", 0.5)
@@ -101,7 +101,7 @@ CTRL-C to quit
         body_pose.pitch = data.axes[4] * 0.261799
         body_pose.yaw = data.buttons[5] * data.axes[3] * 0.436332
         if data.axes[5] < 0:
-            body_pose.z = self.map(data.axes[5], 0, -1.0, 1, 0)
+            body_pose.z = self.map(data.axes[5], 0, -1.0, 1, 0.00001)
         else:
             body_pose.z = 1.0
     
