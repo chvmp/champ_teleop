@@ -8,7 +8,9 @@ import rospy
 
 from sensor_msgs.msg import Joy
 from geometry_msgs.msg import Twist
-from champ_msgs.msg import Pose
+from champ_msgs.msg import Pose as PoseLite
+from geometry_msgs.msg import Pose as Pose
+import tf
 
 import sys, select, termios, tty
 import numpy as np
@@ -16,8 +18,11 @@ import numpy as np
 class Teleop:
     def __init__(self):
         self.velocity_publisher = rospy.Publisher('cmd_vel', Twist, queue_size = 1)
-        self.pose_publisher = rospy.Publisher('cmd_pose', Pose, queue_size = 1)
+        self.pose_lite_publisher = rospy.Publisher('body_pose/raw', PoseLite, queue_size = 1)
+        self.pose_publisher = rospy.Publisher('body_pose', Pose, queue_size = 1)
         self.joy_subscriber = rospy.Subscriber('joy', Joy, self.joy_callback)
+        self.swing_height = rospy.get_param("gait/swing_height", 0)
+        self.nominal_height = rospy.get_param("gait/nominal_height", 0)
 
         self.speed = rospy.get_param("~speed", 0.5)
         self.turn = rospy.get_param("~turn", 1.0)
@@ -86,25 +91,34 @@ CTRL-C to quit
 
     def joy_callback(self, data):
         twist = Twist()
-        twist.linear.x = data.axes[7] * self.speed
-        twist.linear.y = data.buttons[4] * data.axes[6] * self.speed
-        twist.linear.z = 0
-        twist.angular.x = 0
-        twist.angular.y = 0
-        twist.angular.z = (not data.buttons[4]) * data.axes[6] * self.turn
+        twist.linear.x = data.axes[1] * self.speed
+        twist.linear.y = data.buttons[4] * data.axes[0] * self.speed
+        twist.linear.z = 0.0
+        twist.angular.x = 0.0
+        twist.angular.y = 0.0
+        twist.angular.z = (not data.buttons[4]) * data.axes[0] * self.turn
         self.velocity_publisher.publish(twist)
 
-        body_pose = Pose()
-        body_pose.x = 0
-        body_pose.y = 0
-        body_pose.roll = (not data.buttons[5]) *-data.axes[3] * 0.349066
-        body_pose.pitch = data.axes[4] * 0.261799
-        body_pose.yaw = data.buttons[5] * data.axes[3] * 0.436332
+        body_pose_lite = PoseLite()
+        body_pose_lite.x = 0
+        body_pose_lite.y = 0
+        body_pose_lite.roll = (not data.buttons[5]) *-data.axes[3] * 0.349066
+        body_pose_lite.pitch = data.axes[4] * 0.261799
+        body_pose_lite.yaw = data.buttons[5] * data.axes[3] * 0.436332
         if data.axes[5] < 0:
-            body_pose.z = self.map(data.axes[5], 0, -1.0, 1, 0.00001)
-        else:
-            body_pose.z = 1.0
-    
+            body_pose_lite.z = data.axes[5] * 0.5
+
+        self.pose_lite_publisher.publish(body_pose_lite)
+
+        body_pose = Pose()
+        body_pose.position.z = body_pose_lite.z
+
+        quaternion = tf.transformations.quaternion_from_euler(body_pose_lite.roll, body_pose_lite.pitch, body_pose_lite.yaw)
+        body_pose.orientation.x = quaternion[0]
+        body_pose.orientation.y = quaternion[1]
+        body_pose.orientation.z = quaternion[2]
+        body_pose.orientation.w = quaternion[3]
+
         self.pose_publisher.publish(body_pose)
 
     def poll_keys(self):
@@ -144,28 +158,6 @@ CTRL-C to quit
 
                     cmd_attempts += 1
                     
-                elif key in self.poseBindings.keys():
-                    #TODO: changes these values as rosparam
-                    roll += 0.0174533 * self.poseBindings[key][0]
-                    pitch += 0.0174533 * self.poseBindings[key][1]
-                    yaw += 0.0174533 * self.poseBindings[key][2]
-
-                    roll = np.clip(roll, -0.523599, 0.523599)
-                    pitch = np.clip(pitch, -0.349066, 0.349066)
-                    yaw = np.clip(yaw, -0.436332, 0.436332)
-
-                    if cmd_attempts > 1:
-                        body_pose = Pose()
-                        body_pose.x = 0
-                        body_pose.y = 0
-                        body_pose.z = 0
-                        body_pose.roll = roll
-                        body_pose.pitch = pitch
-                        body_pose.yaw = yaw
-                        self.pose_publisher.publish(body_pose)
-
-                    cmd_attempts += 1
-
                 elif key in self.speedBindings.keys():
                     self.speed = self.speed * self.speedBindings[key][0]
                     self.turn = self.turn * self.speedBindings[key][1]
