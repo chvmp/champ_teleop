@@ -103,7 +103,7 @@ CTRL-C to quit
         body_pose_lite.x = 0
         body_pose_lite.y = 0
         body_pose_lite.roll = (not data.buttons[5]) *-data.axes[3] * 0.349066
-        body_pose_lite.pitch = data.axes[4] * 0.261799
+        body_pose_lite.pitch = data.axes[4] * 0.174533
         body_pose_lite.yaw = data.buttons[5] * data.axes[3] * 0.436332
         if data.axes[5] < 0:
             body_pose_lite.z = data.axes[5] * 0.5
