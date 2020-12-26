@@ -14,7 +14,9 @@
     <author>Juan Miguel Jimeno</author>
 
     <buildtool_depend>catkin</buildtool_depend>
-    <run_depend>sensor_msgs</run_depend>
+
     <run_depend>geometry_msgs</run_depend>
+    <run_depend>joy</run_depend>
     <run_depend>rospy</run_depend>
+    <run_depend>sensor_msgs</run_depend>
 </package>
