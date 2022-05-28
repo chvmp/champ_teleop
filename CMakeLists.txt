@@ -1,16 +1,14 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.5)
 project(champ_teleop)
 
-find_package(catkin REQUIRED)
+find_package(ament_cmake REQUIRED)
 
-catkin_package()
+install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 
-catkin_install_python(PROGRAMS
-   champ_teleop.py
-   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+install(PROGRAMS
+  champ_teleop.py
+  DESTINATION lib/${PROJECT_NAME}
 )
 
-install(DIRECTORY launch
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-)
+ament_package()
 

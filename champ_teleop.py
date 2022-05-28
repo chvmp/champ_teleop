@@ -3,29 +3,41 @@
 
 from __future__ import print_function
 
-import roslib; roslib.load_manifest('champ_teleop')
-import rospy
+import select
+import sys
+import termios
+import tty
 
-from sensor_msgs.msg import Joy
-from geometry_msgs.msg import Twist
+import numpy as np
+import rclpy
+import tf
 from champ_msgs.msg import Pose as PoseLite
 from geometry_msgs.msg import Pose as Pose
-import tf
+from geometry_msgs.msg import Twist
+from rclpy.node import Node
+from sensor_msgs.msg import Joy
 
-import sys, select, termios, tty
-import numpy as np
 
-class Teleop:
+class Teleop(Node):
     def __init__(self):
-        self.velocity_publisher = rospy.Publisher('cmd_vel', Twist, queue_size = 1)
-        self.pose_lite_publisher = rospy.Publisher('body_pose/raw', PoseLite, queue_size = 1)
-        self.pose_publisher = rospy.Publisher('body_pose', Pose, queue_size = 1)
-        self.joy_subscriber = rospy.Subscriber('joy', Joy, self.joy_callback)
-        self.swing_height = rospy.get_param("gait/swing_height", 0)
-        self.nominal_height = rospy.get_param("gait/nominal_height", 0)
+        super().__init__('champ_teleop', automatically_declare_parameters_from_overrides=True)
+		
+        self.velocity_publisher = self.create_publisher(Twist, 'cmd_vel', 1)
+        self.pose_lite_publisher = self.create_publisher(PoseLite, 'body_pose/raw', 1)
+        self.pose_publisher = self.create_publisher(Pose, 'body_pose', 1)
+        
+        self.joy_subscriber = self.create_subscription(Joy, 'joy', self.joy_callback, 1)
 
-        self.speed = rospy.get_param("~speed", 0.5)
-        self.turn = rospy.get_param("~turn", 1.0)
+        self.declare_parameter("gait/swing_height", 0)
+        self.declare_parameter("gait/nominal_height", 0)
+        self.declare_parameter("speed", 0.5)
+        self.declare_parameter("turn", 1.0)
+        
+        self.swing_height = self.get_parameter("gait/swing_height").value
+        self.nominal_height = self.get_parameter("gait/nominal_height").value
+
+        self.speed = self.get_parameter("speed").value
+        self.turn = self.get_parameter("turn").value
 
         self.msg = """
 Reading from the keyboard  and Publishing to Twist!
@@ -137,8 +149,9 @@ CTRL-C to quit
         try:
             print(self.msg)
             print(self.vels( self.speed, self.turn))
-            
-            while not rospy.is_shutdown():
+
+            while rclpy.ok():
+
                 key = self.getKey()
                 if key in self.velocityBindings.keys():
                     x = self.velocityBindings[key][0]
@@ -151,8 +164,8 @@ CTRL-C to quit
                         twist.linear.x = x *self.speed
                         twist.linear.y = y * self.speed
                         twist.linear.z = z * self.speed
-                        twist.angular.x = 0
-                        twist.angular.y = 0
+                        twist.angular.x = 0.0
+                        twist.angular.y = 0.0
                         twist.angular.z = th * self.turn
                         self.velocity_publisher.publish(twist)
 
@@ -177,15 +190,16 @@ CTRL-C to quit
 
         finally:
             twist = Twist()
-            twist.linear.x = 0
-            twist.linear.y = 0
-            twist.linear.z = 0
-            twist.angular.x = 0
-            twist.angular.y = 0
-            twist.angular.z = 0
+            twist.linear.x = 0.0
+            twist.linear.y = 0.0
+            twist.linear.z = 0.0
+            twist.angular.x = 0.0
+            twist.angular.y = 0.0
+            twist.angular.z = 0.0
             self.velocity_publisher.publish(twist)
 
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.settings)
+            
         
     def getKey(self):
         tty.setraw(sys.stdin.fileno())
@@ -204,5 +218,5 @@ CTRL-C to quit
         return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 
 if __name__ == "__main__":
-    rospy.init_node('champ_teleop')
+    rclpy.init()
     teleop = Teleop()
