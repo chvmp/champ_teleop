@@ -1,31 +1,63 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #credits to: https://github.com/ros-teleop/teleop_twist_keyboard/blob/master/teleop_twist_keyboard.py
 
 from __future__ import print_function
 
-import roslib; roslib.load_manifest('champ_teleop')
-import rospy
+import select
+import sys
+import termios
+import tty
 
-from sensor_msgs.msg import Joy
-from geometry_msgs.msg import Twist
+import numpy as np
+import rclpy
+
 from champ_msgs.msg import Pose as PoseLite
 from geometry_msgs.msg import Pose as Pose
-import tf
+from geometry_msgs.msg import Twist
+from rclpy.node import Node
+from sensor_msgs.msg import Joy
 
-import sys, select, termios, tty
-import numpy as np
+def quaternion_from_euler(roll, pitch, yaw):
+    """
+    Converts euler roll, pitch, yaw to quaternion (w in last place)
+    quat = [x, y, z, w]
+    Bellow should be replaced when porting for ROS 2 Python tf_conversions is done.
+    """
+    cy = math.cos(yaw * 0.5)
+    sy = math.sin(yaw * 0.5)
+    cp = math.cos(pitch * 0.5)
+    sp = math.sin(pitch * 0.5)
+    cr = math.cos(roll * 0.5)
+    sr = math.sin(roll * 0.5)
 
-class Teleop:
+    q = [0] * 4
+    q[0] = cy * cp * cr + sy * sp * sr
+    q[1] = cy * cp * sr - sy * sp * cr
+    q[2] = sy * cp * sr + cy * sp * cr
+    q[3] = sy * cp * cr - cy * sp * sr
+
+    return q
+
+class Teleop(Node):
     def __init__(self):
-        self.velocity_publisher = rospy.Publisher('cmd_vel', Twist, queue_size = 1)
-        self.pose_lite_publisher = rospy.Publisher('body_pose/raw', PoseLite, queue_size = 1)
-        self.pose_publisher = rospy.Publisher('body_pose', Pose, queue_size = 1)
-        self.joy_subscriber = rospy.Subscriber('joy', Joy, self.joy_callback)
-        self.swing_height = rospy.get_param("gait/swing_height", 0)
-        self.nominal_height = rospy.get_param("gait/nominal_height", 0)
+        super().__init__('champ_teleop')
+		
+        self.velocity_publisher = self.create_publisher(Twist, 'cmd_vel', 1)
+        self.pose_lite_publisher = self.create_publisher(PoseLite, 'body_pose/raw', 1)
+        self.pose_publisher = self.create_publisher(Pose, 'body_pose', 1)
+        
+        self.joy_subscriber = self.create_subscription(Joy, 'joy', self.joy_callback, 1)
 
-        self.speed = rospy.get_param("~speed", 0.5)
-        self.turn = rospy.get_param("~turn", 1.0)
+        self.declare_parameter("gait/swing_height", 0)
+        self.declare_parameter("gait/nominal_height", 0)
+        self.declare_parameter("speed", 0.5)
+        self.declare_parameter("turn", 1.0)
+        
+        self.swing_height = self.get_parameter("gait/swing_height").value
+        self.nominal_height = self.get_parameter("gait/nominal_height").value
+
+        self.speed = self.get_parameter("speed").value
+        self.turn = self.get_parameter("turn").value
 
         self.msg = """
 Reading from the keyboard  and Publishing to Twist!
@@ -113,7 +145,7 @@ CTRL-C to quit
         body_pose = Pose()
         body_pose.position.z = body_pose_lite.z
 
-        quaternion = tf.transformations.quaternion_from_euler(body_pose_lite.roll, body_pose_lite.pitch, body_pose_lite.yaw)
+        quaternion = quaternion_from_euler(body_pose_lite.roll, body_pose_lite.pitch, body_pose_lite.yaw)
         body_pose.orientation.x = quaternion[0]
         body_pose.orientation.y = quaternion[1]
         body_pose.orientation.z = quaternion[2]
@@ -137,8 +169,9 @@ CTRL-C to quit
         try:
             print(self.msg)
             print(self.vels( self.speed, self.turn))
-            
-            while not rospy.is_shutdown():
+
+            while rclpy.ok():
+
                 key = self.getKey()
                 if key in self.velocityBindings.keys():
                     x = self.velocityBindings[key][0]
@@ -151,8 +184,8 @@ CTRL-C to quit
                         twist.linear.x = x *self.speed
                         twist.linear.y = y * self.speed
                         twist.linear.z = z * self.speed
-                        twist.angular.x = 0
-                        twist.angular.y = 0
+                        twist.angular.x = 0.0
+                        twist.angular.y = 0.0
                         twist.angular.z = th * self.turn
                         self.velocity_publisher.publish(twist)
 
@@ -177,15 +210,16 @@ CTRL-C to quit
 
         finally:
             twist = Twist()
-            twist.linear.x = 0
-            twist.linear.y = 0
-            twist.linear.z = 0
-            twist.angular.x = 0
-            twist.angular.y = 0
-            twist.angular.z = 0
+            twist.linear.x = 0.0
+            twist.linear.y = 0.0
+            twist.linear.z = 0.0
+            twist.angular.x = 0.0
+            twist.angular.y = 0.0
+            twist.angular.z = 0.0
             self.velocity_publisher.publish(twist)
 
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, self.settings)
+            
         
     def getKey(self):
         tty.setraw(sys.stdin.fileno())
@@ -204,5 +238,5 @@ CTRL-C to quit
         return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 
 if __name__ == "__main__":
-    rospy.init_node('champ_teleop')
+    rclpy.init()
     teleop = Teleop()
